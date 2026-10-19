@@ -11,7 +11,8 @@
  * 4. Event Binding: `bindEvents` attaches event listeners to the newly rendered DOM elements.
  */
 
-    const STORAGE_KEY = 'gtd_flow_standalone_state_v1';
+    import { saveFile, getFile, deleteFile } from './ticklerStorage.js';
+const STORAGE_KEY = 'gtd_flow_standalone_state_v1';
 
     const GTD_COLUMNS = [
       { id: 'inbox', title: 'Inbox', shortTitle: 'Inbox', icon: '📥', badgeBg: 'bg-slate-500/15 text-slate-400' },
@@ -134,10 +135,10 @@
     }
 
     const DEFAULT_PROJECTS = [
-      { id: 'p1', name: 'Website Launch', icon: '🚀' },
-      { id: 'p2', name: 'Balkon Oase', icon: '🌿' },
-      { id: 'p3', name: 'Steuererklärung', icon: '📊' },
-      { id: 'p4', name: 'Wochenplanung & Haushalt', icon: '🏠' }
+      { id: 'p1', name: 'Website Launch', icon: '🚀', outcome: "", supportNotes: "", links: [], archived: false },
+      { id: 'p2', name: 'Balkon Oase', icon: '🌿', outcome: "", supportNotes: "", links: [], archived: false },
+      { id: 'p3', name: 'Steuererklärung', icon: '📊', outcome: "", supportNotes: "", links: [], archived: false },
+      { id: 'p4', name: 'Wochenplanung & Haushalt', icon: '🏠', outcome: "", supportNotes: "", links: [], archived: false }
     ];
 
     const DEFAULT_TASKS = [
@@ -181,10 +182,20 @@
 
     const savedData = loadPersistedData();
 
+    // Migration: ensure all loaded projects have the new fields
+    let loadedProjects = savedData && Array.isArray(savedData.projects) ? savedData.projects : DEFAULT_PROJECTS;
+    loadedProjects = loadedProjects.map(p => ({
+      ...p,
+      outcome: p.outcome || '',
+      supportNotes: p.supportNotes || '',
+      links: Array.isArray(p.links) ? p.links : [],
+      archived: !!p.archived
+    }));
+
     const state = {
       darkMode: savedData && typeof savedData.darkMode === 'boolean' ? savedData.darkMode : true,
       deviceMode: window.innerWidth < 768 ? 'mobile' : 'pc',
-      activeTab: 'board', // 'board' | 'projects' | 'shopping'
+      activeTab: 'board', // 'board' | 'projects' | 'shopping' | 'tickler'
       mobileStatus: 'next',
       selectedContextFilter: 'all',
       selectedProjectFilter: 'all',
@@ -208,9 +219,13 @@
         step2: false,
         step3: false
       },
-      projects: savedData && Array.isArray(savedData.projects) ? savedData.projects : DEFAULT_PROJECTS,
+      projects: loadedProjects,
       tasks: savedData && Array.isArray(savedData.tasks) ? savedData.tasks : DEFAULT_TASKS,
-      shoppingItems: savedData && Array.isArray(savedData.shoppingItems) ? savedData.shoppingItems : DEFAULT_SHOPPING
+      shoppingItems: savedData && Array.isArray(savedData.shoppingItems) ? savedData.shoppingItems : DEFAULT_SHOPPING,
+      ticklerItems: savedData && Array.isArray(savedData.ticklerItems) ? savedData.ticklerItems : [],
+      activeTicklerMonth: new Date().getMonth() + 1, // 1-12
+      activeTicklerDay: new Date().getDate(), // 1-31
+      activeDossierProjectId: null
     };
 
     function savePersistedData() {
@@ -219,7 +234,8 @@
           darkMode: state.darkMode,
           projects: state.projects,
           tasks: state.tasks,
-          shoppingItems: state.shoppingItems
+          shoppingItems: state.shoppingItems,
+          ticklerItems: state.ticklerItems
         }));
       } catch (e) {
         console.error(e);
@@ -354,7 +370,7 @@
     }
 
     function startRandomFocusTask() {
-      const candidates = state.tasks.filter(t => !t.completed && (t.status === 'next' || t.status === 'inbox'));
+      const candidates = state.tasks.filter(t => !t.completed && t.status !== "planned" && (t.status === 'next' || t.status === 'inbox'));
       if (candidates.length === 0) {
         showToast('Keine offenen Aufgaben für den Fokus-Modus 🎉');
         return;
@@ -427,6 +443,15 @@
 
     function renderApp() {
       savePersistedData();
+      const d = new Date();
+      const currentMonth = d.getMonth() + 1;
+      const currentDay = d.getDate();
+
+      const dueTicklers = state.ticklerItems.filter(i => {
+        // Simple logic: if target is today, or past days in this month
+        return i.targetMonth === currentMonth && i.targetDay <= currentDay;
+      });
+
       const root = document.getElementById('app');
       const dark = state.darkMode;
       document.documentElement.classList.toggle('dark', dark);
@@ -439,7 +464,11 @@
       const textMuted = dark ? 'text-slate-400' : 'text-slate-500';
       const borderSubtle = dark ? 'border-slate-800/80' : 'border-stone-200';
 
-      const openTasksCount = state.tasks.filter(t => !t.completed).length;
+      const activeProjects = state.projects.filter(p => !p.archived);
+      const stuckProjectsCount = activeProjects.filter(p => {
+        return !state.tasks.some(t => t.projectId === p.id && !t.completed && (t.status === 'next' || t.status === 'waiting'));
+      }).length;
+      const openTasksCount = state.tasks.filter(t => !t.completed && t.status !== "planned").length;
       const openShoppingCount = state.shoppingItems.filter(i => !i.checked).length;
       const checkedShoppingList = state.shoppingItems.filter(i => i.checked);
       const selectedTask = state.tasks.find(t => t.id === state.selectedTaskId) || null;
@@ -535,7 +564,7 @@
         <main class="flex-1 w-full mx-auto p-3 sm:p-5 flex flex-col gap-4 ${state.deviceMode === 'mobile' ? 'max-w-[430px] pb-16' : 'max-w-[1200px]'}">
 
           <!-- 3-Pillar Navigation -->
-          <div class="grid grid-cols-3 p-1 rounded-2xl border ${bgCard}">
+          <div class="grid grid-cols-4 p-1 rounded-2xl border ${bgCard}">
             <button
               data-tab="board"
               class="tab-btn py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
@@ -555,6 +584,7 @@
               }"
             >
               <span>📁 Projekte</span>
+              ${stuckProjectsCount > 0 ? `<span class="w-2 h-2 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)] mr-1"></span>` : ''}
               <span class="text-[10px] px-1.5 rounded-full ${state.activeTab === 'projects' ? 'bg-indigo-800 text-indigo-100' : dark ? 'bg-slate-800 text-slate-400' : 'bg-stone-200 text-slate-600'}">
                 ${state.projects.length}
               </span>
@@ -573,11 +603,32 @@
                 </span>
               ` : ''}
             </button>
+            <button
+              data-tab="tickler"
+              class="tab-btn py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                state.activeTab === 'tickler' ? 'bg-amber-600 text-white shadow-sm' : `${textMuted} hover:text-amber-400`
+              }"
+            >
+              <span>🗂️ 43 Mappen</span>
+            </button>
           </div>
 
           <!-- TAB 1: GTD BOARD -->
           ${state.activeTab === 'board' ? `
             <div class="flex flex-col gap-3">
+            ${dueTicklers.length > 0 ? `
+              <div class="rounded-xl border border-amber-500/40 bg-amber-500/15 p-3 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-sm mb-1">
+                <div class="flex items-center gap-2 text-amber-500">
+                  <span class="text-xl">📂</span>
+                  <div class="text-sm font-bold leading-tight">
+                    Heute in deiner Tages-Mappe: <span class="bg-amber-500 text-amber-950 px-1.5 rounded-md">${dueTicklers.length}</span> Einträge
+                  </div>
+                </div>
+                <button id="btn-open-due-ticklers" class="px-3 py-1.5 w-full sm:w-auto rounded-lg bg-amber-500 hover:bg-amber-400 text-amber-950 text-xs font-bold transition-colors">
+                  Ansehen
+                </button>
+              </div>
+            ` : ''}
               <!-- Quick Capture Bar -->
               <form id="form-add-task" class="p-1.5 rounded-2xl border flex items-center gap-2 ${bgCard}">
                 <div class="flex-1 flex items-center gap-2 pl-2.5">
@@ -811,6 +862,26 @@
                   const nextStepTask = projTasks.find(t => t.status === 'next') || projTasks[0];
                   return `
                     <div class="border rounded-2xl p-4 flex flex-col gap-3 ${bgCard}">
+                      ${(() => {
+                        const isStuck = !proj.archived && !state.tasks.some(t => t.projectId === proj.id && !t.completed && (t.status === 'next' || t.status === 'waiting'));
+                        if (!isStuck) return '';
+                        return `
+                          <div class="mb-1 rounded-lg border border-amber-500/30 bg-amber-500/10 p-2.5 flex flex-col gap-2">
+                            <div class="flex items-center gap-1.5 text-amber-500 text-xs font-semibold">
+                              <span>⚠️</span>
+                              <span>Kein aktiver nächster Schritt definiert!</span>
+                            </div>
+                            <div class="flex items-center gap-1.5 shrink-0">
+                              <button data-action="dossier" data-projid="${proj.id}" class="btn-proj-action px-2 py-1 rounded bg-amber-500/20 text-amber-400 text-[10px] font-bold hover:bg-amber-500/30 transition-colors">
+                                ⚡ Schritt anlegen
+                              </button>
+                              <button data-action="archive" data-projid="${proj.id}" class="btn-proj-action px-2 py-1 rounded border border-amber-500/30 text-amber-400 text-[10px] font-bold hover:bg-amber-500/20 transition-colors">
+                                ✅ Abschließen
+                              </button>
+                            </div>
+                          </div>
+                        `;
+                      })()}
                       <div class="flex items-center justify-between border-b pb-2.5 ${borderSubtle}">
                         <div class="flex items-center gap-2">
                           <span class="text-xl">${proj.icon}</span>
@@ -819,6 +890,9 @@
                             <p class="text-[10px] ${textMuted}">${projTasks.length} aktive Schritte</p>
                           </div>
                         </div>
+                        <button data-action="dossier" data-projid="${proj.id}" class="btn-proj-action p-1.5 rounded-lg border hover:bg-slate-500/10 ${bgSubtle} text-xs transition-colors" title="Projekt-Dossier öffnen">
+                          📂 Öffnen
+                        </button>
                         <button
                           data-filterproj="${proj.id}"
                           class="btn-filter-proj text-[11px] font-bold text-indigo-400 hover:underline"
@@ -971,7 +1045,69 @@
 
         </main>
 
-        <!-- GITHUB MOBILE APP GUIDE MODAL -->
+
+          <!-- TAB 4: TICKLER FILE -->
+          ${state.activeTab === 'tickler' ? `
+            <div class="space-y-4">
+              <div class="flex items-center gap-2 p-3 rounded-2xl border ${bgCard}">
+                <select id="select-tickler-month" class="flex-1 p-2 rounded-xl border text-sm font-bold focus:outline-none ${bgSubtle}">
+                  ${Array.from({length:12}, (_,i) => i+1).map(m => `<option value="${m}" ${state.activeTicklerMonth === m ? 'selected' : ''}>Monat ${m}</option>`).join('')}
+                </select>
+                <select id="select-tickler-day" class="flex-1 p-2 rounded-xl border text-sm font-bold focus:outline-none ${bgSubtle}">
+                  ${Array.from({length:31}, (_,i) => i+1).map(d => `<option value="${d}" ${state.activeTicklerDay === d ? 'selected' : ''}>Tag ${d}</option>`).join('')}
+                </select>
+              </div>
+
+              <div class="p-4 rounded-2xl border ${bgCard}">
+                <h3 class="font-bold text-amber-500 mb-3 flex items-center gap-2">
+                  <span>📂</span>
+                  Inhalt für den ${state.activeTicklerDay}. (Monat ${state.activeTicklerMonth})
+                </h3>
+
+                <div class="space-y-2 mb-4">
+                  ${(() => {
+                    const items = state.ticklerItems.filter(i => i.targetMonth === state.activeTicklerMonth && i.targetDay === state.activeTicklerDay);
+                    if (items.length === 0) return `<p class="text-xs ${textMuted} italic">Diese Mappe ist leer.</p>`;
+                    return items.map(item => `
+                      <div class="flex items-start justify-between gap-2 p-2.5 rounded-xl border ${bgSubtle}">
+                        <div class="flex-1 min-w-0">
+                          <p class="text-xs font-bold truncate">${escapeHtml(item.title)}</p>
+                          ${item.notes ? `<p class="text-[10px] ${textMuted} mt-1">${escapeHtml(item.notes)}</p>` : ''}
+                          ${item.attachmentIds && item.attachmentIds.length > 0 ? `
+                            <div class="mt-1.5 flex items-center gap-1">
+                              ${item.attachmentIds.map(att => `
+                                <button class="btn-open-file text-[10px] px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 hover:bg-indigo-500/20" data-fileid="${att.id}">
+                                  📎 ${escapeHtml(att.name)}
+                                </button>
+                              `).join('')}
+                            </div>
+                          ` : ''}
+                        </div>
+                        <div class="flex items-center gap-1 shrink-0">
+                          <button class="btn-tickler-to-next px-2 py-1 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 text-[10px] font-bold hover:bg-indigo-500/20" data-ticklerid="${item.id}">
+                            ⚡ Ins Board
+                          </button>
+                          <button class="btn-del-tickler p-1 rounded text-red-400 hover:bg-red-500/10" data-ticklerid="${item.id}">
+                            ✕
+                          </button>
+                        </div>
+                      </div>
+                    `).join('');
+                  })()}
+                </div>
+
+                <form id="form-add-tickler" class="flex items-center gap-2 border-t pt-3 ${borderSubtle}">
+                  <input type="text" id="input-tickler-title" placeholder="Neue Wiedervorlage..." class="flex-1 p-2 rounded-lg border text-xs focus:outline-none ${bgSubtle}">
+                  <label class="px-2 py-1 rounded bg-slate-500/10 cursor-pointer hover:bg-slate-500/20 text-xs flex items-center justify-center border ${borderSubtle}">
+                    📎 Datei
+                    <input type="file" id="input-tickler-file" class="hidden">
+                  </label>
+                  <button type="submit" class="px-3 py-2 rounded-lg bg-amber-600 text-white text-xs font-bold shrink-0">Einlegen</button>
+                </form>
+              </div>
+            </div>
+          ` : ''}
+          <!-- GITHUB MOBILE APP GUIDE MODAL -->
         ${state.showGitHubModal ? `
           <div id="modal-github-backdrop" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
             <div class="w-full max-w-lg rounded-3xl p-5 border shadow-2xl space-y-4 my-auto ${bgCard}" onclick="event.stopPropagation()">
@@ -1280,7 +1416,105 @@
           </div>
         ` : ''}
 
-        <!-- TOAST NOTIFICATION -->
+
+        <!-- PROJECT DOSSIER MODAL -->
+        ${(() => {
+          if (!state.activeDossierProjectId) return '';
+          const p = state.projects.find(x => x.id === state.activeDossierProjectId);
+          if (!p) return '';
+          const pTasks = state.tasks.filter(t => t.projectId === p.id && !t.completed);
+
+          return `
+            <div class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5">
+              <div id="modal-dossier-backdrop" class="absolute inset-0 bg-slate-950/80 backdrop-blur-sm cursor-pointer transition-opacity"></div>
+              <div class="relative w-full max-w-[500px] max-h-[85vh] flex flex-col rounded-2xl shadow-2xl overflow-hidden border ${bgCard} shadow-indigo-500/10">
+
+                <div class="flex items-center justify-between p-4 border-b ${borderSubtle}">
+                  <div class="flex items-center gap-2.5">
+                    <span class="text-2xl">${p.icon}</span>
+                    <div>
+                      <h2 class="font-bold text-lg leading-tight">${escapeHtml(p.name)}</h2>
+                      <p class="text-[10px] ${textMuted}">Projekt Dossier</p>
+                    </div>
+                  </div>
+                  <button id="btn-close-dossier" class="p-1.5 rounded-lg border hover:bg-slate-500/10 ${bgSubtle}">
+                    ✕
+                  </button>
+                </div>
+
+                <div class="flex-1 overflow-y-auto p-4 space-y-5 no-scrollbar">
+
+                  <div class="space-y-1.5">
+                    <label class="text-[11px] font-bold uppercase tracking-wider text-indigo-400">🎯 Gewünschtes Ergebnis (Outcome)</label>
+                    <textarea
+                      id="input-dossier-outcome"
+                      rows="2"
+                      placeholder="Wann ist dieses Projekt erfolgreich abgeschlossen?"
+                      class="w-full p-2.5 rounded-xl border text-sm focus:outline-none focus:border-indigo-500/50 resize-none ${bgSubtle}"
+                    >${escapeHtml(p.outcome)}</textarea>
+                  </div>
+
+
+                  <div class="space-y-2">
+                    <label class="text-[11px] font-bold uppercase tracking-wider text-sky-400">📎 Dateien & Anhänge</label>
+                    <div class="flex items-center gap-2 flex-wrap">
+                      ${p.links && p.links.length > 0 ? p.links.map(l => `
+                        <button class="btn-open-proj-file text-[10px] px-2 py-1 rounded bg-sky-500/10 text-sky-400 border border-sky-500/20 hover:bg-sky-500/20 flex items-center gap-1" data-fileid="${l.id}">
+                          📎 ${escapeHtml(l.name || l.title || 'Datei')}
+                        </button>
+                      `).join('') : '<span class="text-xs text-slate-500 italic">Keine Dateien angehängt.</span>'}
+                    </div>
+                    <label class="inline-block mt-2 px-2 py-1 rounded bg-slate-500/10 cursor-pointer hover:bg-slate-500/20 text-[10px] font-bold border border-slate-700 text-slate-300">
+                      + Datei hochladen
+                      <input type="file" id="input-dossier-file" class="hidden" data-projid="${p.id}">
+                    </label>
+                  </div>
+                  <div class="space-y-1.5">
+                    <label class="text-[11px] font-bold uppercase tracking-wider text-amber-400">📋 Notizen & Material</label>
+                    <textarea
+                      id="input-dossier-notes"
+                      rows="3"
+                      placeholder="Gedanken, Checklisten, Kontakte..."
+                      class="w-full p-2.5 rounded-xl border text-sm focus:outline-none focus:border-amber-500/50 resize-y min-h-[80px] ${bgSubtle}"
+                    >${escapeHtml(p.supportNotes)}</textarea>
+                  </div>
+
+                  <div class="space-y-3">
+                    <div class="flex items-center justify-between">
+                      <label class="text-[11px] font-bold uppercase tracking-wider text-emerald-400">⚡ Projektschritte (${pTasks.length})</label>
+                    </div>
+
+                    <div class="space-y-2">
+                      ${pTasks.map(t => `
+                        <div class="flex items-center gap-2 p-2 rounded-xl border ${t.status === 'planned' ? 'bg-slate-500/5 border-slate-500/20' : 'bg-slate-500/10 border-indigo-500/30'}">
+                          <button class="btn-check-task w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors border-slate-400 hover:border-indigo-400" data-checktask="${t.id}"></button>
+                          <span class="text-xs font-medium flex-1 truncate ${t.status === 'planned' ? textMuted : ''}">${escapeHtml(t.title)}</span>
+                          <button class="btn-toggle-planned px-2 py-1 rounded text-[10px] font-bold transition-all border ${t.status === 'planned' ? 'bg-slate-800 text-slate-400 border-slate-700 hover:border-indigo-500/50' : 'bg-indigo-600 text-white border-indigo-500 shadow-sm'}" data-taskid="${t.id}">
+                            ${t.status === 'planned' ? '📋 Vorgeplant' : '⚡ Nächster'}
+                          </button>
+                        </div>
+                      `).join('')}
+                    </div>
+
+
+                    <form id="form-dossier-add-task" class="flex flex-col gap-2 mt-2 border-t border-slate-700 pt-3">
+                      <div class="flex items-center gap-2">
+                        <input type="text" id="input-dossier-new-task" placeholder="Neuer Schritt..." class="flex-1 p-2 rounded-lg border text-xs focus:outline-none ${bgSubtle}">
+                        <select id="select-dossier-task-status" class="p-2 rounded-lg border text-xs focus:outline-none ${bgSubtle}">
+                          <option value="planned">📋 Vorgeplant</option>
+                          <option value="next">⚡ Nächster Schritt</option>
+                        </select>
+                        <button type="submit" class="px-3 py-2 rounded-lg bg-indigo-600 text-white text-xs font-bold shrink-0">Hinzufügen</button>
+                      </div>
+                    </form>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+          `;
+        })()}
+<!-- TOAST NOTIFICATION -->
         ${state.toastMessage ? `
           <div class="fixed bottom-5 right-5 z-50 bg-slate-900 text-white border border-indigo-500/40 px-4 py-2.5 rounded-2xl shadow-xl text-xs font-bold">
             ${escapeHtml(state.toastMessage)}
@@ -1319,6 +1553,189 @@
       on('btn-focus-mode', 'click', startRandomFocusTask);
       on('btn-focus-close', 'click', () => { state.focusTaskId = null; renderApp(); });
       on('modal-focus-backdrop', 'click', () => { state.focusTaskId = null; renderApp(); });
+
+      on('btn-close-dossier', 'click', () => { state.activeDossierProjectId = null; renderApp(); });
+      on('modal-dossier-backdrop', 'click', () => { state.activeDossierProjectId = null; renderApp(); });
+
+      on('input-dossier-outcome', 'input', (e) => {
+        const p = state.projects.find(x => x.id === state.activeDossierProjectId);
+        if (p) { p.outcome = e.target.value; savePersistedData(); }
+      });
+      on('input-dossier-notes', 'input', (e) => {
+        const p = state.projects.find(x => x.id === state.activeDossierProjectId);
+        if (p) { p.supportNotes = e.target.value; savePersistedData(); }
+      });
+
+      on('input-dossier-file', 'change', async (e) => {
+        const fileInput = e.target;
+        const projId = fileInput.getAttribute('data-projid');
+        if (fileInput.files.length > 0 && projId) {
+          const file = fileInput.files[0];
+          const fileId = 'file-' + Date.now();
+          try {
+            await saveFile(fileId, file, file.name, file.type);
+            const p = state.projects.find(x => x.id === projId);
+            if (p) {
+              if (!p.links) p.links = [];
+              p.links.push({ id: fileId, name: file.name, url: '' });
+              savePersistedData();
+              showToast('Datei zum Projekt hinzugefügt 📎');
+              renderApp();
+            }
+          } catch(err) {
+            console.error(err);
+            showToast('Fehler beim Speichern der Datei');
+          }
+        }
+      });
+
+      document.querySelectorAll('.btn-open-proj-file').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const fId = btn.getAttribute('data-fileid');
+          try {
+            const fileData = await getFile(fId);
+            if (fileData && fileData.blob) {
+              const url = URL.createObjectURL(fileData.blob);
+              window.open(url, '_blank');
+            } else {
+              showToast('Datei nicht gefunden.');
+            }
+          } catch (err) {
+            console.error(err);
+            showToast('Fehler beim Öffnen der Datei.');
+          }
+        });
+      });
+
+
+      on('select-tickler-month', 'change', (e) => { state.activeTicklerMonth = parseInt(e.target.value, 10); renderApp(); });
+      on('select-tickler-day', 'change', (e) => { state.activeTicklerDay = parseInt(e.target.value, 10); renderApp(); });
+      on('btn-open-due-ticklers', 'click', () => {
+        const d = new Date();
+        state.activeTab = 'tickler';
+        state.activeTicklerMonth = d.getMonth() + 1;
+        state.activeTicklerDay = d.getDate();
+        renderApp();
+      });
+
+      on('form-add-tickler', 'submit', async (e) => {
+        e.preventDefault();
+        const input = document.getElementById('input-tickler-title');
+        if (!input || !input.value.trim()) return;
+
+        const fileInput = document.getElementById('input-tickler-file');
+        const attachmentIds = [];
+        if (fileInput && fileInput.files.length > 0) {
+          const file = fileInput.files[0];
+          const fileId = 'file-' + Date.now();
+          try {
+            await saveFile(fileId, file, file.name, file.type);
+            attachmentIds.push({ id: fileId, name: file.name });
+            showToast('Datei lokal gespeichert 📎');
+          } catch(err) {
+            console.error(err);
+            showToast('Fehler beim Speichern der Datei');
+          }
+        }
+
+        state.ticklerItems.push({
+          id: 'tk-' + Date.now(),
+          title: input.value.trim(),
+          notes: '',
+          targetMonth: state.activeTicklerMonth,
+          targetDay: state.activeTicklerDay,
+          attachmentIds: attachmentIds,
+          createdAt: new Date().toISOString()
+        });
+        savePersistedData();
+        renderApp();
+      });
+
+      document.querySelectorAll('.btn-del-tickler').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const tId = btn.getAttribute('data-ticklerid');
+          state.ticklerItems = state.ticklerItems.filter(x => x.id !== tId);
+          savePersistedData();
+          renderApp();
+        });
+      });
+
+
+      document.querySelectorAll('.btn-open-file').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const fId = btn.getAttribute('data-fileid');
+          try {
+            const fileData = await getFile(fId);
+            if (fileData && fileData.blob) {
+              const url = URL.createObjectURL(fileData.blob);
+              window.open(url, '_blank');
+              // Optional: revokeObjectURL nach Zeit x
+            } else {
+              showToast('Datei nicht gefunden.');
+            }
+          } catch (err) {
+            console.error(err);
+            showToast('Fehler beim Öffnen der Datei.');
+          }
+        });
+      });
+      document.querySelectorAll('.btn-tickler-to-next').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const tId = btn.getAttribute('data-ticklerid');
+          const item = state.ticklerItems.find(x => x.id === tId);
+          if (item) {
+            state.tasks.unshift({
+              id: 't-tk-' + Date.now(),
+              title: item.title,
+              status: 'next',
+              projectId: '',
+              context: '⚡ 2-Minuten',
+              deadline: '',
+              completed: false,
+              notes: item.notes
+            });
+            state.ticklerItems = state.ticklerItems.filter(x => x.id !== tId);
+            savePersistedData();
+            showToast('Als nächste Aufgabe ins Board gelegt ✨');
+            renderApp();
+          }
+        });
+      });
+on('form-dossier-add-task', 'submit', (e) => {
+        e.preventDefault();
+        const input = document.getElementById('input-dossier-new-task');
+        const statusSelect = document.getElementById('select-dossier-task-status');
+        if (!input || !input.value.trim() || !state.activeDossierProjectId) return;
+        const taskStatus = statusSelect ? statusSelect.value : 'planned';
+        state.tasks.unshift({
+          id: 't-dos-' + Date.now(),
+          title: input.value.trim(),
+          status: taskStatus,
+          projectId: state.activeDossierProjectId,
+          context: '⚡ 2-Minuten',
+          deadline: '',
+          completed: false,
+          notes: ''
+        });
+        savePersistedData();
+        renderApp();
+      });
+
+      document.querySelectorAll('.btn-toggle-planned').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const tId = btn.getAttribute('data-taskid');
+          const t = state.tasks.find(x => x.id === tId);
+          if (t) {
+            t.status = (t.status === 'planned') ? 'next' : 'planned';
+            savePersistedData();
+            renderApp();
+          }
+        });
+      });
+
       on('btn-focus-next', 'click', startRandomFocusTask);
       on('btn-focus-complete', 'click', () => {
         if (state.focusTaskId) toggleTaskCompleted(state.focusTaskId);
@@ -1379,6 +1796,25 @@
         });
       });
 
+
+      document.querySelectorAll('.btn-proj-action').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const action = btn.getAttribute('data-action');
+          const projId = btn.getAttribute('data-projid');
+          if (action === 'archive') {
+            const p = state.projects.find(x => x.id === projId);
+            if (p) {
+              p.archived = true;
+              savePersistedData();
+              renderApp();
+            }
+          } else if (action === 'dossier') {
+            state.activeDossierProjectId = projId;
+            renderApp();
+          }
+        });
+      });
       document.querySelectorAll('.btn-check-task').forEach(btn => {
         btn.addEventListener('click', (e) => {
           e.stopPropagation();
