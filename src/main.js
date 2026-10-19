@@ -12,7 +12,7 @@
  */
 
     import { saveFile, getFile, deleteFile } from './ticklerStorage.js';
-    import { escapeHtml } from './utils.js';
+    import { SHOPPING_CATEGORIES, detectShoppingCategory } from './utils.js';
 const STORAGE_KEY = 'gtd_flow_standalone_state_v1';
 
     const GTD_COLUMNS = [
@@ -30,89 +30,6 @@ const STORAGE_KEY = 'gtd_flow_standalone_state_v1';
       { id: '⚡ 2-Minuten', label: '2-Minuten', emoji: '⚡' },
       { id: '🔋 Low-Energy', label: 'Low-Energy', emoji: '🔋' }
     ];
-
-    const SHOPPING_CATEGORIES = [
-      {
-        id: 'fresh',
-        label: '🥦 Obst & Gemüse',
-        shortLabel: 'Obst & Gemüse',
-        keywords: ['apfel', 'äpfel', 'banane', 'tomate', 'gurke', 'salat', 'avocado', 'zwiebel', 'knoblauch', 'kartoffel', 'karotte', 'möhre', 'paprika', 'beeren', 'zitrone', 'pilze', 'champignon', 'brokkoli', 'zucchini', 'ingwer', 'kräuter', 'basilikum', 'obst', 'gemüse']
-      },
-      {
-        id: 'bakery',
-        label: '🥖 Brot & Backwaren',
-        shortLabel: 'Bäckerei',
-        keywords: ['brot', 'brötchen', 'semmel', 'toast', 'baguette', 'brezel', 'kuchen', 'croissant', 'vollkornbrot', 'sauerteig', 'tortilla', 'wraps', 'aufback']
-      },
-      {
-        id: 'meat_fish',
-        label: '🥩 Fleisch, Wurst & Fisch',
-        shortLabel: 'Fleisch & Fisch',
-        keywords: ['fleisch', 'hähnchen', 'pute', 'rind', 'schwein', 'hack', 'hackfleisch', 'steak', 'lachs', 'fisch', 'forelle', 'garnelen', 'wurst', 'schinken', 'salami', 'aufschnitt', 'bratwurst', 'speck', 'bacon']
-      },
-      {
-        id: 'fridge',
-        label: '🧀 Kühlregal, Milch & Käse',
-        shortLabel: 'Kühlregal',
-        keywords: ['milch', 'hafermilch', 'käse', 'gouda', 'mozzarella', 'parmesan', 'feta', 'frischkäse', 'butter', 'margarine', 'joghurt', 'quark', 'skyr', 'eier', 'hummus', 'sahne', 'schmand', 'tofu', 'gnocchi']
-      },
-      {
-        id: 'dry_goods',
-        label: '🍝 Trockenware, Nudeln & Reis',
-        shortLabel: 'Trockenware & Nudeln',
-        keywords: ['nudel', 'spaghetti', 'pasta', 'penne', 'fusilli', 'lasagne', 'reis', 'basmati', 'risotto', 'linsen', 'couscous', 'bulgur', 'quinoa', 'haferflocken', 'müsli', 'cornflakes', 'mehl', 'zucker', 'backpulver', 'hefe', 'paniermehl', 'trocken']
-      },
-      {
-        id: 'canned',
-        label: '🥫 Konserven, Gläser & Soßen',
-        shortLabel: 'Konserven & Vorrat',
-        keywords: ['konserve', 'dose', 'dosentomaten', 'tomatenmark', 'passierte', 'mais', 'bohnen', 'kidneybohnen', 'kichererbsen', 'erbsen', 'thunfisch', 'kokosmilch', 'pesto', 'soße', 'sauce', 'öl', 'olivenöl', 'sonnenblumenöl', 'essig', 'senf', 'ketchup', 'mayo', 'brühe', 'gewürz', 'salz', 'pfeffer', 'marmelade', 'honig', 'nutella', 'essiggurken', 'oliven']
-      },
-      {
-        id: 'frozen',
-        label: '🧊 Tiefkühltruhe (TK)',
-        shortLabel: 'Tiefkühltruhe',
-        keywords: ['tiefkühl', 'tk', 'pizza', 'tk-pizza', 'eis', 'eiscreme', 'pommes', 'spinat', 'rahmspinat', 'fischstäbchen', 'tk-gemüse', 'tk-beeren', 'aufbackbrötchen', 'baguettes', 'frosta', 'kroketten']
-      },
-      {
-        id: 'snacks',
-        label: '🍫 Snacks, Süßes & Nüsse',
-        shortLabel: 'Snacks & Süßes',
-        keywords: ['schokolade', 'schoki', 'chips', 'nüsse', 'mandeln', 'cashew', 'kekse', 'keks', 'haribo', 'gummibärchen', 'riegel', 'popcorn', 'salzstangen', 'cracker', 'snack']
-      },
-      {
-        id: 'drinks',
-        label: '🥤 Getränke, Kaffee & Tee',
-        shortLabel: 'Getränke & Kaffee',
-        keywords: ['wasser', 'sprudel', 'mineralwasser', 'kaffee', 'espresso', 'bohnen', 'tee', 'saft', 'apfelsaft', 'orangensaft', 'schorle', 'cola', 'limo', 'bier', 'wein', 'sekt', 'energy']
-      },
-      {
-        id: 'household',
-        label: '🧻 Haushalt, Putzen & Papier',
-        shortLabel: 'Haushalt',
-        keywords: ['spüli', 'spülmittel', 'tabs', 'spülmaschinentabs', 'klopapier', 'toilettenpapier', 'küchenrolle', 'taschentücher', 'waschmittel', 'weichspüler', 'müllbeutel', 'backpapier', 'alufolie', 'frischhaltefolie', 'schwamm', 'putzmittel', 'allzweckreiniger', 'batterien', 'blumenerde']
-      },
-      {
-        id: 'drugstore',
-        label: '🧴 Drogerie & Körperpflege',
-        shortLabel: 'Drogerie',
-        keywords: ['seife', 'shampoo', 'duschgel', 'zahnpasta', 'zahnbürste', 'deo', 'creme', 'bodylotion', 'rasierer', 'pflaster', 'wattestäbchen', 'sonnencreme']
-      }
-    ];
-
-    function detectShoppingCategory(title) {
-      if (!title) return 'dry_goods';
-      const norm = title.toLowerCase().trim();
-      if (norm.includes('tk ') || norm.startsWith('tk-') || norm.includes('tiefkühl')) {
-        return 'frozen';
-      }
-      for (const cat of SHOPPING_CATEGORIES) {
-        for (const kw of cat.keywords) {
-          if (norm.includes(kw)) return cat.id;
-        }
-      }
-      return 'dry_goods';
-    }
 
     function getRelativeDateString(offsetDays = 0) {
       const d = new Date();
@@ -433,6 +350,7 @@ const STORAGE_KEY = 'gtd_flow_standalone_state_v1';
       showToast(`${tCount} Aufgaben & ${sCount} Einkäufe importiert ✨`);
     }
 
+
     function renderApp() {
       savePersistedData();
       const d = new Date();
@@ -456,15 +374,49 @@ const STORAGE_KEY = 'gtd_flow_standalone_state_v1';
       const textMuted = dark ? 'text-slate-400' : 'text-slate-500';
       const borderSubtle = dark ? 'border-slate-800/80' : 'border-stone-200';
 
-      const activeProjects = state.projects.filter(p => !p.archived);
-      const stuckProjectsCount = activeProjects.filter(p => {
-        return !state.tasks.some(t => t.projectId === p.id && !t.completed && (t.status === 'next' || t.status === 'waiting'));
-      }).length;
-      const openTasksCount = state.tasks.filter(t => !t.completed && t.status !== "planned").length;
-      const openShoppingCount = state.shoppingItems.filter(i => !i.checked).length;
-      const checkedShoppingList = state.shoppingItems.filter(i => i.checked);
-      const selectedTask = state.tasks.find(t => t.id === state.selectedTaskId) || null;
-      const focusTask = state.tasks.find(t => t.id === state.focusTaskId) || null;
+      let openTasksCount = 0;
+      let selectedTask = null;
+      let focusTask = null;
+      const actionableProjectIds = new Set();
+
+      for (let i = 0; i < state.tasks.length; i++) {
+        const t = state.tasks[i];
+
+        if (!t.completed) {
+          if (t.status !== 'planned') {
+            openTasksCount++;
+          }
+          if (t.status === 'next' || t.status === 'waiting') {
+            actionableProjectIds.add(t.projectId);
+          }
+        }
+
+        if (t.id === state.selectedTaskId) selectedTask = t;
+        if (t.id === state.focusTaskId) focusTask = t;
+      }
+
+      let stuckProjectsCount = 0;
+      const activeProjects = [];
+      for (let i = 0; i < state.projects.length; i++) {
+        const p = state.projects[i];
+        if (!p.archived) {
+          activeProjects.push(p);
+          if (!actionableProjectIds.has(p.id)) {
+            stuckProjectsCount++;
+          }
+        }
+      }
+
+      let openShoppingCount = 0;
+      const checkedShoppingList = [];
+      for (let i = 0; i < state.shoppingItems.length; i++) {
+        const item = state.shoppingItems[i];
+        if (item.checked) {
+          checkedShoppingList.push(item);
+        } else {
+          openShoppingCount++;
+        }
+      }
 
       const liveShoppingPreview = state.shoppingInput.trim()
         ? state.shoppingInput.split(',').map(s => s.trim()).filter(Boolean).map(title => {
@@ -473,6 +425,28 @@ const STORAGE_KEY = 'gtd_flow_standalone_state_v1';
             return { title, label: cObj.shortLabel };
           })
         : [];
+
+      // Optimize: Pre-calculate tasks grouped by GTD columns instead of O(N*M) filtering inside the template
+      const selectedContext = state.selectedContextFilter;
+      const selectedProject = state.selectedProjectFilter;
+      const isContextAll = selectedContext === 'all';
+      const isProjectAll = selectedProject === 'all';
+
+      const groupedTasks = {
+        inbox: [], next: [], waiting: [], someday: []
+      };
+
+      const renderTasks = state.tasks;
+      for (let i = 0; i < renderTasks.length; i++) {
+        const t = renderTasks[i];
+        if ((isContextAll || t.context === selectedContext) &&
+            (isProjectAll || t.projectId === selectedProject)) {
+          const arr = groupedTasks[t.status];
+          if (arr !== undefined) {
+            arr.push(t);
+          }
+        }
+      }
 
       root.innerHTML = `
         <!-- Top Header -->
@@ -710,11 +684,7 @@ const STORAGE_KEY = 'gtd_flow_standalone_state_v1';
               ${state.deviceMode === 'mobile' ? `
                 <div class="grid grid-cols-4 p-1 rounded-xl border ${bgCard}">
                   ${GTD_COLUMNS.map(col => {
-                    const count = state.tasks.filter(
-                      t => !t.completed && t.status === col.id &&
-                      (state.selectedContextFilter === 'all' || t.context === state.selectedContextFilter) &&
-                      (state.selectedProjectFilter === 'all' || t.projectId === state.selectedProjectFilter)
-                    ).length;
+                    const count = groupedTasks[col.id] ? groupedTasks[col.id].filter(t => !t.completed).length : 0;
                     const active = state.mobileStatus === col.id;
                     return `
                       <button
@@ -723,7 +693,7 @@ const STORAGE_KEY = 'gtd_flow_standalone_state_v1';
                           active ? 'bg-indigo-600 text-white' : textMuted
                         }"
                       >
-                        <span class="truncate">${col.shortTitle}</span>
+                        <span class="truncate">${escapeHtml(col.shortTitle)}</span>
                         <span class="text-[10px] opacity-75">(${count})</span>
                       </button>
                     `;
@@ -734,11 +704,7 @@ const STORAGE_KEY = 'gtd_flow_standalone_state_v1';
               <!-- Columns Grid -->
               <div class="${state.deviceMode === 'pc' ? 'grid grid-cols-1 md:grid-cols-4 gap-3.5' : 'space-y-3'}">
                 ${GTD_COLUMNS.filter(col => state.deviceMode === 'pc' || col.id === state.mobileStatus).map(col => {
-                  const colTasks = state.tasks.filter(
-                    t => t.status === col.id &&
-                    (state.selectedContextFilter === 'all' || t.context === state.selectedContextFilter) &&
-                    (state.selectedProjectFilter === 'all' || t.projectId === state.selectedProjectFilter)
-                  );
+                  const colTasks = groupedTasks[col.id] || [];
                   return `
                     <div
                       data-coldrop="${col.id}"
@@ -747,7 +713,7 @@ const STORAGE_KEY = 'gtd_flow_standalone_state_v1';
                       <div class="flex items-center justify-between border-b pb-2 ${borderSubtle}">
                         <div class="flex items-center gap-1.5">
                           <span class="text-xs">${col.icon}</span>
-                          <h3 class="font-bold text-xs">${col.title}</h3>
+                          <h3 class="font-bold text-xs">${escapeHtml(col.title)}</h3>
                         </div>
                         <span class="text-[10px] px-2 py-0.5 rounded-full font-bold ${col.badgeBg}">
                           ${colTasks.filter(t => !t.completed).length}
@@ -1315,7 +1281,7 @@ const STORAGE_KEY = 'gtd_flow_standalone_state_v1';
                         selectedTask.status === col.id ? 'bg-indigo-600 text-white border-indigo-500' : `${bgSubtle} ${textMuted}`
                       }"
                     >
-                      ${col.shortTitle}
+                      ${escapeHtml(col.shortTitle)}
                     </button>
                   `).join('')}
                 </div>
