@@ -649,7 +649,7 @@ const STORAGE_KEY = 'gtd_flow_standalone_state_v1';
                           active ? 'bg-indigo-600 text-white' : textMuted
                         }"
                       >
-                        <span class="truncate">${col.shortTitle}</span>
+                        <span class="truncate">${escapeHtml(col.shortTitle)}</span>
                         <span class="text-[10px] opacity-75">(${count})</span>
                       </button>
                     `;
@@ -673,7 +673,7 @@ const STORAGE_KEY = 'gtd_flow_standalone_state_v1';
                       <div class="flex items-center justify-between border-b pb-2 ${borderSubtle}">
                         <div class="flex items-center gap-1.5">
                           <span class="text-xs">${col.icon}</span>
-                          <h3 class="font-bold text-xs">${col.title}</h3>
+                          <h3 class="font-bold text-xs">${escapeHtml(col.title)}</h3>
                         </div>
                         <span class="text-[10px] px-2 py-0.5 rounded-full font-bold ${col.badgeBg}">
                           ${colTasks.filter(t => !t.completed).length}
@@ -1241,7 +1241,7 @@ const STORAGE_KEY = 'gtd_flow_standalone_state_v1';
                         selectedTask.status === col.id ? 'bg-indigo-600 text-white border-indigo-500' : `${bgSubtle} ${textMuted}`
                       }"
                     >
-                      ${col.shortTitle}
+                      ${escapeHtml(col.shortTitle)}
                     </button>
                   `).join('')}
                 </div>
