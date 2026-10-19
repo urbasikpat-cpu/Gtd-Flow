@@ -11,7 +11,9 @@
  * 4. Event Binding: `bindEvents` attaches event listeners to the newly rendered DOM elements.
  */
 
-    import { saveFile, getFile, deleteFile } from './ticklerStorage.js';
+import { saveFile, getFile, deleteFile } from './ticklerStorage.js';
+import { getRelativeDateString, formatReadableDate } from './utils/date.js';
+
 const STORAGE_KEY = 'gtd_flow_standalone_state_v1';
 
     const GTD_COLUMNS = [
@@ -111,27 +113,6 @@ const STORAGE_KEY = 'gtd_flow_standalone_state_v1';
         }
       }
       return 'dry_goods';
-    }
-
-    function getRelativeDateString(offsetDays = 0) {
-      const d = new Date();
-      d.setDate(d.getDate() + offsetDays);
-      return d.toISOString().split('T')[0];
-    }
-
-    function formatReadableDate(dateStr) {
-      if (!dateStr) return '';
-      const today = getRelativeDateString(0);
-      const tomorrow = getRelativeDateString(1);
-      if (dateStr === today) return '🔥 Heute';
-      if (dateStr === tomorrow) return 'Morgen';
-      try {
-        const [y, m, d] = dateStr.split('-').map(Number);
-        const dateObj = new Date(y, m - 1, d);
-        return dateObj.toLocaleDateString('de-DE', { day: '2-digit', month: 'short' });
-      } catch {
-        return dateStr;
-      }
     }
 
     const DEFAULT_PROJECTS = [
