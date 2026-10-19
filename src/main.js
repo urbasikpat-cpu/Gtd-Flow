@@ -464,15 +464,49 @@ const STORAGE_KEY = 'gtd_flow_standalone_state_v1';
       const textMuted = dark ? 'text-slate-400' : 'text-slate-500';
       const borderSubtle = dark ? 'border-slate-800/80' : 'border-stone-200';
 
-      const activeProjects = state.projects.filter(p => !p.archived);
-      const stuckProjectsCount = activeProjects.filter(p => {
-        return !state.tasks.some(t => t.projectId === p.id && !t.completed && (t.status === 'next' || t.status === 'waiting'));
-      }).length;
-      const openTasksCount = state.tasks.filter(t => !t.completed && t.status !== "planned").length;
-      const openShoppingCount = state.shoppingItems.filter(i => !i.checked).length;
-      const checkedShoppingList = state.shoppingItems.filter(i => i.checked);
-      const selectedTask = state.tasks.find(t => t.id === state.selectedTaskId) || null;
-      const focusTask = state.tasks.find(t => t.id === state.focusTaskId) || null;
+      let openTasksCount = 0;
+      let selectedTask = null;
+      let focusTask = null;
+      const actionableProjectIds = new Set();
+
+      for (let i = 0; i < state.tasks.length; i++) {
+        const t = state.tasks[i];
+
+        if (!t.completed) {
+          if (t.status !== 'planned') {
+            openTasksCount++;
+          }
+          if (t.status === 'next' || t.status === 'waiting') {
+            actionableProjectIds.add(t.projectId);
+          }
+        }
+
+        if (t.id === state.selectedTaskId) selectedTask = t;
+        if (t.id === state.focusTaskId) focusTask = t;
+      }
+
+      let stuckProjectsCount = 0;
+      const activeProjects = [];
+      for (let i = 0; i < state.projects.length; i++) {
+        const p = state.projects[i];
+        if (!p.archived) {
+          activeProjects.push(p);
+          if (!actionableProjectIds.has(p.id)) {
+            stuckProjectsCount++;
+          }
+        }
+      }
+
+      let openShoppingCount = 0;
+      const checkedShoppingList = [];
+      for (let i = 0; i < state.shoppingItems.length; i++) {
+        const item = state.shoppingItems[i];
+        if (item.checked) {
+          checkedShoppingList.push(item);
+        } else {
+          openShoppingCount++;
+        }
+      }
 
       const liveShoppingPreview = state.shoppingInput.trim()
         ? state.shoppingInput.split(',').map(s => s.trim()).filter(Boolean).map(title => {
