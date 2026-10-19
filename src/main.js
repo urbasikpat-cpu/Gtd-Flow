@@ -484,7 +484,7 @@ const STORAGE_KEY = 'gtd_flow_standalone_state_v1';
 
       root.innerHTML = `
         <!-- Top Header -->
-        <header class="sticky top-0 z-30 backdrop-blur-md border-b px-3 sm:px-4 py-2.5 ${dark ? 'bg-slate-900/90 border-slate-800' : 'bg-white/90 border-stone-200'}">
+        <header class="sticky top-0 z-40 backdrop-blur-md border-b px-3 sm:px-4 py-2.5 ${dark ? 'bg-slate-900/90 border-slate-800' : 'bg-white/90 border-stone-200'}">
           <div class="max-w-[1200px] mx-auto flex items-center justify-between gap-1.5">
             <div class="flex items-center gap-2">
               <div class="w-7 h-7 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-sm shrink-0">
@@ -561,7 +561,7 @@ const STORAGE_KEY = 'gtd_flow_standalone_state_v1';
         </header>
 
         <!-- Main Workspace Container -->
-        <main class="flex-1 w-full mx-auto p-3 sm:p-5 flex flex-col gap-4 ${state.deviceMode === 'mobile' ? 'max-w-[430px] pb-16' : 'max-w-[1200px]'}">
+        <main class="flex-1 w-full mx-auto overflow-y-auto p-3 sm:p-5 flex flex-col gap-4 ${state.deviceMode === 'mobile' ? 'max-w-[430px] pb-16' : 'max-w-[1200px]'}">
 
           <!-- 3-Pillar Navigation -->
           <div class="grid grid-cols-4 p-1 rounded-2xl border ${bgCard}">
