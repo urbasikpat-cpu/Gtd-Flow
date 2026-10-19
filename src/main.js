@@ -1,3 +1,15 @@
+/**
+ * GTD Flow - Main Application Logic
+ *
+ * This file contains the entire state management, UI rendering, and event handling logic
+ * for the GTD Flow application. It has been refactored to work with Vite.
+ *
+ * Key concepts:
+ * 1. State: The `state` object holds the current application data (tasks, projects, etc.).
+ * 2. Persistence: `savePersistedData` and `loadPersistedData` sync the state with `localStorage`.
+ * 3. Rendering: `renderApp` builds the HTML string based on the current state and injects it into the DOM.
+ * 4. Event Binding: `bindEvents` attaches event listeners to the newly rendered DOM elements.
+ */
 
     const STORAGE_KEY = 'gtd_flow_standalone_state_v1';
 
