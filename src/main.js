@@ -99,15 +99,20 @@ const STORAGE_KEY = 'gtd_flow_standalone_state_v1';
       }
     ];
 
+    const SHOPPING_CATEGORY_REGEXES = SHOPPING_CATEGORIES.map(cat => ({
+      id: cat.id,
+      regex: new RegExp(cat.keywords.map(kw => kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'))
+    }));
+
     function detectShoppingCategory(title) {
       if (!title) return 'dry_goods';
       const norm = title.toLowerCase().trim();
       if (norm.includes('tk ') || norm.startsWith('tk-') || norm.includes('tiefkühl')) {
         return 'frozen';
       }
-      for (const cat of SHOPPING_CATEGORIES) {
-        for (const kw of cat.keywords) {
-          if (norm.includes(kw)) return cat.id;
+      for (let i = 0; i < SHOPPING_CATEGORY_REGEXES.length; i++) {
+        if (SHOPPING_CATEGORY_REGEXES[i].regex.test(norm)) {
+          return SHOPPING_CATEGORY_REGEXES[i].id;
         }
       }
       return 'dry_goods';
