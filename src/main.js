@@ -12,6 +12,7 @@
  */
 
     import { saveFile, getFile, deleteFile } from './ticklerStorage.js';
+    import { escapeHtml } from './utils.js';
 const STORAGE_KEY = 'gtd_flow_standalone_state_v1';
 
     const GTD_COLUMNS = [
@@ -430,15 +431,6 @@ const STORAGE_KEY = 'gtd_flow_standalone_state_v1';
       state.showSyncModal = false;
       savePersistedData();
       showToast(`${tCount} Aufgaben & ${sCount} Einkäufe importiert ✨`);
-    }
-
-    function escapeHtml(str) {
-      if (!str) return '';
-      return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
     }
 
     function renderApp() {
