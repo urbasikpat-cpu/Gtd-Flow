@@ -482,6 +482,28 @@ const STORAGE_KEY = 'gtd_flow_standalone_state_v1';
           })
         : [];
 
+      // Optimize: Pre-calculate tasks grouped by GTD columns instead of O(N*M) filtering inside the template
+      const selectedContext = state.selectedContextFilter;
+      const selectedProject = state.selectedProjectFilter;
+      const isContextAll = selectedContext === 'all';
+      const isProjectAll = selectedProject === 'all';
+
+      const groupedTasks = {
+        inbox: [], next: [], waiting: [], someday: []
+      };
+
+      const renderTasks = state.tasks;
+      for (let i = 0; i < renderTasks.length; i++) {
+        const t = renderTasks[i];
+        if ((isContextAll || t.context === selectedContext) &&
+            (isProjectAll || t.projectId === selectedProject)) {
+          const arr = groupedTasks[t.status];
+          if (arr !== undefined) {
+            arr.push(t);
+          }
+        }
+      }
+
       root.innerHTML = `
         <!-- Top Header -->
         <header class="sticky top-0 z-30 backdrop-blur-md border-b px-3 sm:px-4 py-2.5 ${dark ? 'bg-slate-900/90 border-slate-800' : 'bg-white/90 border-stone-200'}">
@@ -718,11 +740,7 @@ const STORAGE_KEY = 'gtd_flow_standalone_state_v1';
               ${state.deviceMode === 'mobile' ? `
                 <div class="grid grid-cols-4 p-1 rounded-xl border ${bgCard}">
                   ${GTD_COLUMNS.map(col => {
-                    const count = state.tasks.filter(
-                      t => !t.completed && t.status === col.id &&
-                      (state.selectedContextFilter === 'all' || t.context === state.selectedContextFilter) &&
-                      (state.selectedProjectFilter === 'all' || t.projectId === state.selectedProjectFilter)
-                    ).length;
+                    const count = groupedTasks[col.id] ? groupedTasks[col.id].filter(t => !t.completed).length : 0;
                     const active = state.mobileStatus === col.id;
                     return `
                       <button
@@ -742,11 +760,7 @@ const STORAGE_KEY = 'gtd_flow_standalone_state_v1';
               <!-- Columns Grid -->
               <div class="${state.deviceMode === 'pc' ? 'grid grid-cols-1 md:grid-cols-4 gap-3.5' : 'space-y-3'}">
                 ${GTD_COLUMNS.filter(col => state.deviceMode === 'pc' || col.id === state.mobileStatus).map(col => {
-                  const colTasks = state.tasks.filter(
-                    t => t.status === col.id &&
-                    (state.selectedContextFilter === 'all' || t.context === state.selectedContextFilter) &&
-                    (state.selectedProjectFilter === 'all' || t.projectId === state.selectedProjectFilter)
-                  );
+                  const colTasks = groupedTasks[col.id] || [];
                   return `
                     <div
                       data-coldrop="${col.id}"
