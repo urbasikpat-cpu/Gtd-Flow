@@ -1,11 +1,10 @@
 <!DOCTYPE html>
-<!--
+<!-- 
   GTD Flow - Entry Point
-  This is the main HTML file for the Vite project.
+  This is the main HTML file for the Vite project. 
   The app UI is dynamically rendered into the <div id="app"> container by src/main.js.
   Styling is handled by Tailwind CSS via style.css.
 -->
-
 <html class="dark" lang="de"><head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
@@ -35,9 +34,12 @@
                 ✓
               </div>
 <h1 class="text-sm font-bold tracking-tight hidden xs:block">GTD Flow</h1>
-<button class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-600 text-white hover:bg-emerald-500 flex items-center gap-1 shadow-sm transition-all" id="btn-copy-code-top">
-<span>📋 Code kopieren</span>
-</button>
+              <div
+                class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-800 text-slate-400 flex items-center gap-1 shadow-sm"
+                title="Vite Build Setup aktiv"
+              >
+                <span>⚡ Vite Setup</span>
+              </div>
 <button class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/25 flex items-center gap-1 transition-all" id="btn-open-github">
 <span>📱 GitHub-Hilfe</span>
 </button>
@@ -241,5 +243,4 @@
 <!-- TASK DETAIL & AI COACH MODAL -->
 <!-- TOAST NOTIFICATION -->
 </div>
-
 <script src="/src/main.js" type="module"></script></body></html>
